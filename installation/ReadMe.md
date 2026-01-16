@@ -59,7 +59,7 @@ Use below cloudformation template file to create 3 ec2 instances.
 
         apt-get update && apt-get install -y containerd.io
 
-*** If you encounter Malformed entry 1 in the list file /etc/apt/sources.list.d/docker.list (URI) error. Please refer to the troubleshooting section for detailed steps to resolve the error ***
+***If you encounter Malformed entry 1 in the list file /etc/apt/sources.list.d/docker.list (URI) error. Please refer to the troubleshooting section for detailed steps to resolve the error***
 
 ---
 
