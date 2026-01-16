@@ -1,0 +1,231 @@
+---
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "VPC Creation with Public and Private subnet"
+        Parameters:
+          - VPCNAME
+          - VPCCIDR
+          - PUBSUB1CIDR
+          - PUBSUB2CIDR
+          - PUBSUB3CIDR
+          - PRISUB1CIDR
+          - PRISUB2CIDR
+          - PRISUB3CIDR
+
+Parameters:
+  VPCNAME:
+    Description: "Enter your VPC name"
+    Type: String
+  VPCCIDR:
+    Description: "Enter VPC CIDR"
+    Type: String
+  PUBSUB1CIDR:
+    Description: "Enter CIDR for public subnet 1"
+    Type: String
+  PUBSUB2CIDR:
+    Description: "Enter CIDR for public subnet 2"
+    Type: String
+  PUBSUB3CIDR:
+    Description: "Enter CIDR for public subnet 3"
+    Type: String    
+  PRISUB1CIDR:
+    Description: "Enter CIDR for private subnet 1"
+    Type: String
+  PRISUB2CIDR:
+    Description: "Enter CIDR for private subnet 2"
+    Type: String
+  PRISUB3CIDR:
+    Description: "Enter CIDR for private subnet 3"
+    Type: String    
+
+Resources:
+  ### VPC
+  VPCID:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref "VPCCIDR"
+      EnableDnsHostnames: "True"
+      EnableDnsSupport: "True"
+      Tags: 
+        - Key: "Name"
+          Value: !Ref "VPCNAME"
+
+  ### Internet Gateway
+  IG:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: "Name"
+          Value: !Join [ "-", [ !Ref "VPCNAME", "IG" ] ]
+
+  IGAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref "IG"
+      VpcId: !Ref "VPCID"
+
+  ### Public Subnets
+  PubSub1:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [0, !GetAZs ""]
+      CidrBlock: !Ref "PUBSUB1CIDR"
+      MapPublicIpOnLaunch: "True"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PubSub1"]]}]
+
+  PubSub2:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [1, !GetAZs ""]
+      CidrBlock: !Ref "PUBSUB2CIDR"
+      MapPublicIpOnLaunch: "True"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PubSub2"]]}]
+
+  PubSub3:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [2, !GetAZs ""]
+      CidrBlock: !Ref "PUBSUB3CIDR"
+      MapPublicIpOnLaunch: "True"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PubSub3"]]}]
+
+  ### Private Subnets
+  PriSub1:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [0, !GetAZs ""]
+      CidrBlock: !Ref "PRISUB1CIDR"
+      MapPublicIpOnLaunch: "False"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PriSub1"]]}]
+
+  PriSub2:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [1, !GetAZs ""]
+      CidrBlock: !Ref "PRISUB2CIDR"
+      MapPublicIpOnLaunch: "False"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PriSub2"]]}]
+
+  PriSub3:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: 
+        Fn::Select: [2, !GetAZs ""]
+      CidrBlock: !Ref "PRISUB3CIDR"
+      MapPublicIpOnLaunch: "False"
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PriSub3"]]}]
+
+  ### Route Tables
+  PubRT:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PubRT"]]}]
+
+  PriRT:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref "VPCID"
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PriRT"]]}]
+
+  ### Public Route Table Associations
+  PubSub1RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PubRT, SubnetId: !Ref "PubSub1" }
+
+  PubSub2RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PubRT, SubnetId: !Ref "PubSub2" }
+
+  PubSub3RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PubRT, SubnetId: !Ref "PubSub3" }
+
+  ### Private Route Table Associations
+  PriSub1RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PriRT, SubnetId: !Ref "PriSub1" }
+
+  PriSub2RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PriRT, SubnetId: !Ref "PriSub2" }
+
+  PriSub3RTassoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { RouteTableId: !Ref PriRT, SubnetId: !Ref "PriSub3" }
+
+  ### Routes
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IGAttach
+    Properties: 
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref IG
+      RouteTableId: !Ref PubRT
+
+  ### NAT Gateway for Private Subnets
+  NatEIP:
+    Type: AWS::EC2::EIP
+    Properties: { Domain: vpc }
+
+  NatGW:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP.AllocationId
+      SubnetId: !Ref PubSub1
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "NatGW"]]}]
+
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NatGW
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      RouteTableId: !Ref PriRT
+      NatGatewayId: !Ref NatGW
+
+  ### Security Groups
+  PubSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: "SG for all Public Subnets"
+      GroupName: !Join ["-", [!Ref "VPCNAME", "PubSG"]]
+      SecurityGroupIngress: 
+        - CidrIp: "0.0.0.0/0"
+          Description: "Allow SSH"
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+        - CidrIp: "0.0.0.0/0"
+          Description: "Allow HTTP"
+          FromPort: 80
+          ToPort: 80
+          IpProtocol: tcp
+      VpcId: !Ref VPCID
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PubSG"]]}]
+
+  PriSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: "SG for all Private Subnets"
+      GroupName: !Join ["-", [!Ref "VPCNAME", "PriSG"]]
+      SecurityGroupIngress: 
+        - Description: "Allow SSH from Public SG"
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref PubSG
+      VpcId: !Ref VPCID
+      Tags: [{ Key: "Name", Value: !Join ["-", [!Ref "VPCNAME", "PriSG"]]}]

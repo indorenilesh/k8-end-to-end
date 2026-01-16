@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CloudFormation template to create 1 master EC2 and Auto Scaling Group for worker nodes,
+  with SSM & CloudWatch installed, fully configured CloudWatch Agent.
+
+Parameters:
+  PREFIX:
+    Type: String
+    Description: Prefix for instance names
+  SUBNETID:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for master EC2
+  WORKERSUBNETS:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for worker Auto Scaling Group
+  SECURITYGROUP:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID for EC2 instances
+  KEYNAME:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key pair name for SSH access
+  LatestUbuntuAMI:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id'
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    Description: EC2 instance type for master and worker nodes
+  WORKERINSTANCECOUNT:
+    Type: Number
+    Default: 2
+    Description: Number of worker nodes in Auto Scaling Group
+
+Resources:
+
+  ############################
+  # IAM Policies
+  ############################
+
+  CommonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${PREFIX}-CommonPolicy"
+      Description: "Common policy with SSM and CloudWatch access"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:*
+              - ec2messages:*
+              - cloudwatch:*
+              - logs:*
+              - cloudwatch:PutMetricData
+            Resource: "*"
+
+  MasterPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${PREFIX}-MasterPolicy"
+      Description: "Master specific policy with S3 read access"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:List*
+            Resource: "*"
+
+  WorkerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${PREFIX}-WorkerPolicy"
+      Description: "Worker specific policy with S3 read access"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:List*
+            Resource: "*"
+
+  ############################
+  # IAM Roles and Instance Profiles
+  ############################
+
+  MasterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - !Ref CommonPolicy
+        - !Ref MasterPolicy
+
+  MasterInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref MasterRole
+      Path: "/"
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - !Ref CommonPolicy
+        - !Ref WorkerPolicy
+
+  WorkerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref WorkerRole
+      Path: "/"
+
+  ############################
+  # Master EC2 Instance
+  ############################
+  MasterInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SUBNETID
+      SecurityGroupIds:
+        - !Ref SECURITYGROUP
+      KeyName: !Ref KEYNAME
+      ImageId: !Ref LatestUbuntuAMI
+      IamInstanceProfile: !Ref MasterInstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub "${PREFIX}-master"
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install -y snapd jq wget
+          snap install amazon-ssm-agent --classic
+          systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+          systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+
+          wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+          dpkg -i amazon-cloudwatch-agent.deb
+
+          cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+          {
+            "agent": { "metrics_collection_interval": 60, "run_as_user": "root" },
+            "metrics": {
+              "append_dimensions": { "InstanceId": "\${aws:InstanceId}" },
+              "metrics_collected": {
+                "cpu": { "measurement": ["usage_idle","usage_system","usage_user"], "metrics_collection_interval": 60 },
+                "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
+                "disk": { "measurement": ["used_percent"], "resources": ["*"], "metrics_collection_interval": 60 },
+                "net": { "measurement": ["bytes_sent","bytes_recv"], "resources": ["*"], "metrics_collection_interval": 60 }
+              }
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    { "file_path": "/var/log/syslog", "log_group_name": "/${PREFIX}/syslog", "log_stream_name": "{instance_id}" },
+                    { "file_path": "/var/log/auth.log", "log_group_name": "/${PREFIX}/auth", "log_stream_name": "{instance_id}" }
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+
+          systemctl enable amazon-cloudwatch-agent
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+
+  ############################
+  # Worker Launch Template
+  ############################
+  WorkerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${PREFIX}-WorkerLT"
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        ImageId: !Ref LatestUbuntuAMI
+        KeyName: !Ref KEYNAME
+        SecurityGroupIds:
+          - !Ref SECURITYGROUP
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install -y snapd jq wget
+            snap install amazon-ssm-agent --classic
+            systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+            systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+
+            # Set dynamic worker hostname
+            PREFIX="{{Ref: PREFIX}}"
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            WORKER_NUMBER=$(echo $INSTANCE_ID | tail -c 4)
+            HOSTNAME="${PREFIX}-worker-${WORKER_NUMBER}"
+            hostnamectl set-hostname $HOSTNAME
+            echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
+
+            wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+            dpkg -i amazon-cloudwatch-agent.deb
+
+            cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            {
+              "agent": { "metrics_collection_interval": 60, "run_as_user": "root" },
+              "metrics": {
+                "append_dimensions": { "InstanceId": "\${aws:InstanceId}" },
+                "metrics_collected": {
+                  "cpu": { "measurement": ["usage_idle","usage_system","usage_user"], "metrics_collection_interval": 60 },
+                  "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
+                  "disk": { "measurement": ["used_percent"], "resources": ["*"], "metrics_collection_interval": 60 },
+                  "net": { "measurement": ["bytes_sent","bytes_recv"], "resources": ["*"], "metrics_collection_interval": 60 }
+                }
+              },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      { "file_path": "/var/log/syslog", "log_group_name": "/${PREFIX}/syslog", "log_stream_name": "{instance_id}" },
+                      { "file_path": "/var/log/auth.log", "log_group_name": "/${PREFIX}/auth", "log_stream_name": "{instance_id}" }
+                    ]
+                  }
+                }
+              }
+            }
+            EOF
+
+            systemctl enable amazon-cloudwatch-agent
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+
+  ############################
+  # Auto Scaling Group for Workers
+  ############################
+  WorkerAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref WORKERSUBNETS
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WorkerLaunchTemplate
+        Version: !GetAtt WorkerLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref WORKERINSTANCECOUNT
+      MaxSize: 5
+      DesiredCapacity: !Ref WORKERINSTANCECOUNT
+      Tags:
+        - Key: Name
+          Value: !Sub "${PREFIX}-worker"
+          PropagateAtLaunch: true
