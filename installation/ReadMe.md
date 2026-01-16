@@ -13,6 +13,7 @@ Use below cloudformation template file to create above resources
 Use below cloudformation template file to create 3 ec2 instances.
 
     cf-3-ec2.yml
+---
 
 ### Below steps need to perform on Master as well as on Worker node
 
@@ -54,10 +55,11 @@ Use below cloudformation template file to create 3 ec2 instances.
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \ 
     https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-
+---
 
 ### K8 Master server installation steps
 
+---
 
 ### K8 Worker server installation steps
 
