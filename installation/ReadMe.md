@@ -103,7 +103,6 @@ This command adds the Kubernetes repository to the system's list of package sour
 
         systemctl enable kubelet 
 
-***Note: We have successfully performed these commands on the Master node. Now, repeat all the steps on both Worker nodes.***
 ---
 
 ### K8 Master server installation steps
