@@ -61,6 +61,19 @@ Use below cloudformation template file to create 3 ec2 instances.
 
 ***If you encounter Malformed entry 1 in the list file /etc/apt/sources.list.d/docker.list (URI) error. Please refer to the troubleshooting section for detailed steps to resolve the error***
 
+9. Configure containerd for Systemd Cgroup Management to enable the use of systemd for managing cgroups in containerd.
+
+    mkdir -p /etc/containerd
+    containerd config default>/etc/containerd/config.toml
+    sed -e 's/SystemdCgroup = false/SystemdCgroup = true/g' -i /etc/containerd/config.toml
+
+10. Reloading Daemon, Restarting, Enabling, and Checking containerd Service Status
+
+        systemctl daemon-reload
+        systemctl restart containerd
+        systemctl enable containerd
+        systemctl status  containerd
+
 ---
 
 ### K8 Master server installation steps
