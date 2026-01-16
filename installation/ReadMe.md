@@ -17,11 +17,11 @@ Use below cloudformation template file to create 3 ec2 instances.
 
 ### Below steps need to perform on Master as well as on Worker node
 
-#### use root user
+1. use root user
 
     sudo su -
 
-#### Configure Kernel Modules to containerd Configuration File
+2. Configure Kernel Modules to containerd Configuration File
 
     tee /etc/modules-load.d/containerd.conf <<EOF
     overlay
