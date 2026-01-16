@@ -23,37 +23,37 @@ Use below cloudformation template file to create 3 ec2 instances.
 
 2. Configure Kernel Modules to containerd Configuration File
 
-    tee /etc/modules-load.d/containerd.conf <<EOF
-    overlay
-    br_netfilter
-    EOF
+        tee /etc/modules-load.d/containerd.conf <<EOF
+        overlay
+        br_netfilter
+        EOF
 
-#### Load the kernel modules into the running Linux kernel.
+3. Load the kernel modules into the running Linux kernel.
 
-    modprobe overlay
-    modprobe br_netfilter
+        modprobe overlay
+        modprobe br_netfilter
 
-#### Update the iptables settings by setting net.bridge.bridge-nf-call-iptables to 1 in your sysctl config file to ensure proper packet processing during filtering and port forwarding.
+4. Update the iptables settings by setting net.bridge.bridge-nf-call-iptables to 1 in your sysctl config file to ensure proper packet processing during filtering and port forwarding.
 
-    tee /etc/sysctl.d/kubernetes.conf<<EOF
-    net.bridge.bridge-nf-call-ip6tables = 1
-    net.bridge.bridge-nf-call-iptables = 1
-    net.ipv4.ip_forward = 1
-    EOF
+        tee /etc/sysctl.d/kubernetes.conf<<EOF
+        net.bridge.bridge-nf-call-ip6tables = 1
+        net.bridge.bridge-nf-call-iptables = 1
+        net.ipv4.ip_forward = 1
+        EOF
     
-#### Applying Kernel Settings Without Reboot
+5. Applying Kernel Settings Without Reboot
 
-    sysctl --system
+        sysctl --system
 
-#### Adding Docker Repository GPG Key to Trusted Keys, so it allows the system to verify the integrity of the downloaded Docker packages. 
+6. Adding Docker Repository GPG Key to Trusted Keys, so it allows the system to verify the integrity of the downloaded Docker packages. 
 
-    mkdir -m 0755 -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        mkdir -m 0755 -p /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-#### Adding a Docker Repository to Ubuntu Package Sources enables the system to download and install Docker packages from the specified repository.
+7. Adding a Docker Repository to Ubuntu Package Sources enables the system to download and install Docker packages from the specified repository.
 
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \ 
-    https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \ 
+        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 ---
 
