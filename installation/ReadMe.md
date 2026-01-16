@@ -74,6 +74,36 @@ Use below cloudformation template file to create 3 ec2 instances.
         systemctl enable containerd
         systemctl status  containerd
 
+11. Update the apt package index and install packages needed to use the Kubernetes https certificate configuration:
+
+    apt-get update && apt-get install -y apt-transport-https ca-certificates curl
+
+12. Download the GPG key, as it is used to verify Kubernetes packages from the Kubernetes package repository, and store it in the kubernetes-apt-keyring.gpg file in the /etc/apt/keyrings/ directory.
+
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    
+***Note: The command above must be run as a single line. Copy it to Notepad first to ensure it's in a single line before running it.***
+
+13. Adding Kubernetes Repository to System's Package Sources	
+This command adds the Kubernetes repository to the system's list of package sources by appending the repository information to the file
+
+***Note: Carefully copy and paste the next command. You can paste it into Notepad to make sure it is a single line command.***
+
+        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+14. Install kubelet, kubeadm, kubectl packages.
+
+        apt-get update && apt-get install -y kubelet kubeadm kubectl
+
+15. Holding Kubernetes Packages to Prevent Automatic Changes
+
+        apt-mark hold kubelet kubeadm kubectl
+
+16. Enable the kubelet service.
+
+        systemctl enable kubelet 
+
+***Note: We have successfully performed these commands on the Master node. Now, repeat all the steps on both Worker nodes.***
 ---
 
 ### K8 Master server installation steps
