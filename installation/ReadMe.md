@@ -1,6 +1,6 @@
-#### Setup K8 cluster
+# Setup K8 cluster
 
-# I am using AWS cloud and ubuntu ami for servers.
+## I am using AWS cloud and ubuntu ami for servers.
 
 Create basic networking like vpc, subnet, internet gateway, nat gateway, route tables, security groups.
 
