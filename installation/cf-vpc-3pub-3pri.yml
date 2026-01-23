@@ -18,27 +18,35 @@ Parameters:
   VPCNAME:
     Description: "Enter your VPC name"
     Type: String
+    Default: "poc-k8"
   VPCCIDR:
     Description: "Enter VPC CIDR"
     Type: String
+    Default: "192.168.0.0/16"
   PUBSUB1CIDR:
     Description: "Enter CIDR for public subnet 1"
     Type: String
+    Default: "192.168.1.0/16"
   PUBSUB2CIDR:
     Description: "Enter CIDR for public subnet 2"
     Type: String
+    Default: "192.168.2.0/16"
   PUBSUB3CIDR:
     Description: "Enter CIDR for public subnet 3"
-    Type: String    
+    Type: String
+    Default: "192.168.3.0/16"
   PRISUB1CIDR:
     Description: "Enter CIDR for private subnet 1"
     Type: String
+    Default: "192.168.11.0/16"
   PRISUB2CIDR:
     Description: "Enter CIDR for private subnet 2"
     Type: String
+    Default: "192.168.22.0/16"
   PRISUB3CIDR:
     Description: "Enter CIDR for private subnet 3"
-    Type: String    
+    Type: String
+    Default: "192.168.33.0/16"
 
 Resources:
   ### VPC
